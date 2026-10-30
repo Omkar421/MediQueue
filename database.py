@@ -8,8 +8,9 @@ validation, and statistical aggregations.
 import os
 import csv
 import sqlite3
+from contextlib import contextmanager
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple, Any, Union
+from typing import Dict, Iterator, List, Optional, Tuple, Any, Union
 
 # Configuration & Constants
 DEFAULT_DB_PATH = os.path.join("data", "mediqueue.db")
@@ -66,6 +67,17 @@ def get_connection(db_path: Optional[str] = None) -> sqlite3.Connection:
     return conn
 
 
+@contextmanager
+def _managed_connection(db_path: Optional[str] = None) -> Iterator[sqlite3.Connection]:
+    """Commit or roll back database work, then always close the connection."""
+    conn = get_connection(db_path)
+    try:
+        with conn:
+            yield conn
+    finally:
+        conn.close()
+
+
 def init_db(db_path: Optional[str] = None) -> None:
     """
     Initialize SQLite database and create required tables and indexes.
@@ -73,7 +85,7 @@ def init_db(db_path: Optional[str] = None) -> None:
     path = db_path or DEFAULT_DB_PATH
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     
-    with get_connection(path) as conn:
+    with _managed_connection(path) as conn:
         cursor = conn.cursor()
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS hospital_visits (
@@ -223,7 +235,7 @@ def insert_visit(visit_data: Dict[str, Any], db_path: Optional[str] = None) -> b
     init_db(path)
     
     try:
-        with get_connection(path) as conn:
+        with _managed_connection(path) as conn:
             cursor = conn.cursor()
             cursor.execute("""
                 INSERT INTO hospital_visits (
@@ -282,7 +294,7 @@ def update_visit(patient_id: str, update_fields: Dict[str, Any], db_path: Option
     set_clause = ", ".join([f"{k} = :{k}" for k in sanitized_fields.keys()])
     params = {**sanitized_fields, "patient_id": str(patient_id).strip()}
     
-    with get_connection(path) as conn:
+    with _managed_connection(path) as conn:
         cursor = conn.cursor()
         cursor.execute(f"""
             UPDATE hospital_visits
@@ -303,7 +315,7 @@ def get_all_visits(db_path: Optional[str] = None) -> List[Dict[str, Any]]:
     path = db_path or DEFAULT_DB_PATH
     init_db(path)
     
-    with get_connection(path) as conn:
+    with _managed_connection(path) as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM hospital_visits ORDER BY arrival_time ASC")
         rows = cursor.fetchall()
@@ -327,7 +339,7 @@ def get_visits_by_department(department: str, db_path: Optional[str] = None) -> 
     path = db_path or DEFAULT_DB_PATH
     init_db(path)
     
-    with get_connection(path) as conn:
+    with _managed_connection(path) as conn:
         cursor = conn.cursor()
         cursor.execute(
             "SELECT * FROM hospital_visits WHERE department = ? ORDER BY arrival_time ASC",
@@ -344,7 +356,7 @@ def get_visit_by_id(patient_id: str, db_path: Optional[str] = None) -> Optional[
     path = db_path or DEFAULT_DB_PATH
     init_db(path)
     
-    with get_connection(path) as conn:
+    with _managed_connection(path) as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM hospital_visits WHERE patient_id = ?", (str(patient_id).strip(),))
         row = cursor.fetchone()
@@ -411,7 +423,7 @@ def import_csv(
                 summary["errors"].append(f"Row {row_idx}: Parsing failed - {e}")
                 
     # Bulk insert with integrity handling
-    with get_connection(target_db) as conn:
+    with _managed_connection(target_db) as conn:
         cursor = conn.cursor()
         for rec in records_to_insert:
             try:
@@ -449,7 +461,7 @@ def get_database_stats(db_path: Optional[str] = None) -> Dict[str, Any]:
     path = db_path or DEFAULT_DB_PATH
     init_db(path)
     
-    with get_connection(path) as conn:
+    with _managed_connection(path) as conn:
         cursor = conn.cursor()
         
         # Total records
@@ -533,4 +545,3 @@ if __name__ == "__main__":
     stats = get_database_stats()
     for k, v in stats.items():
         print(f"  {k}: {v}")
-

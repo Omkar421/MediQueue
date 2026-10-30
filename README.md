@@ -77,9 +77,12 @@ MediQueue/
 ├── run_analytics.py          # Analytics demo runner & report generator
 ├── test_analytics.py         # PySpark analytics unit test suite (10 tests)
 ├── test_database.py          # Database unit test suite (18 tests)
+├── test_dashboard_helpers.py # Dashboard SQLite initialization tests (2 tests)
 ├── requirements.txt          # Python dependencies
 └── README.md                 # Project documentation and setup guide
 ```
+
+The Streamlit app automatically imports `data/hospital_visits.csv` into SQLite when it finds an empty database. Existing SQLite records are left unchanged.
 
 ---
 
@@ -183,6 +186,8 @@ A comprehensive unit test suite with 18 automated tests covers schema creation, 
 ```powershell
 python test_database.py -v
 ```
+
+The dashboard's automatic SQLite seeding is covered by `python -m unittest test_dashboard_helpers -v`.
 
 All tests run in an isolated in-memory or temporary database without mutating the production `data/mediqueue.db`.
 

@@ -39,11 +39,18 @@ def get_cached_analytics(
 
 
 @st.cache_data(show_spinner="Fetching patient queue records from SQLite...")
-def get_cached_patient_visits() -> List[Dict[str, Any]]:
+def get_cached_patient_visits(
+    csv_path: str = database.DEFAULT_CSV_PATH,
+    db_path: str = database.DEFAULT_DB_PATH
+) -> List[Dict[str, Any]]:
     """
-    Fetch all 200 patient visit records from SQLite database layer.
+    Fetch patient visits from SQLite, importing the bundled CSV if the database is empty.
     """
-    return database.get_all_visits()
+    visits = database.get_all_visits(db_path=db_path)
+    if not visits:
+        database.import_csv(csv_path=csv_path, db_path=db_path)
+        visits = database.get_all_visits(db_path=db_path)
+    return visits
 
 
 def convert_dict_list_to_csv(data: List[Dict[str, Any]]) -> str:
