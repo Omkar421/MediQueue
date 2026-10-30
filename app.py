@@ -53,16 +53,7 @@ st.set_page_config(
 # Inject custom healthcare command center CSS
 apply_custom_css()
 
-# Load PySpark analytical aggregations and raw patient visits
-analytics_data = get_cached_analytics()
-overall_stats = analytics_data["overall_stats"]
-dept_analytics = analytics_data["department_analytics"]
-pri_analytics = analytics_data["priority_analytics"]
-wait_classes = analytics_data["waiting_time_classification"]
-peak_hours = analytics_data["peak_hour_analysis"]
-day_stats = analytics_data["day_wise_analysis"]
-insights = analytics_data["insights"]
-
+# Load visit records for queue operations and filter choices.
 raw_visits = get_cached_patient_visits()
 raw_df = pd.DataFrame(raw_visits) if raw_visits else pd.DataFrame()
 
@@ -101,7 +92,47 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # Engine Status Info Card
+    st.markdown("#### Explore the data")
+    st.caption("Each selection filters the source DataFrame in Spark before the dashboard metrics are calculated.")
+    if st.button("Reset analytics filters", use_container_width=True):
+        st.session_state["filter_department"] = "All Departments"
+        st.session_state["filter_priority"] = "All Priorities"
+        st.session_state["filter_day"] = "All Days"
+
+    departments = (
+        sorted(raw_df["department"].dropna().unique().tolist())
+        if not raw_df.empty else []
+    )
+    department_options = ["All Departments"] + departments
+    selected_department = st.selectbox(
+        "Department",
+        department_options,
+        key="filter_department"
+    )
+    selected_priority = st.selectbox(
+        "Triage priority",
+        ["All Priorities", "Critical", "High", "Medium", "Low"],
+        key="filter_priority"
+    )
+    selected_day = st.selectbox(
+        "Arrival day",
+        ["All Days", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+        key="filter_day"
+    )
+
+    analytics_data = get_cached_analytics(
+        department="" if selected_department == "All Departments" else selected_department,
+        priority="" if selected_priority == "All Priorities" else selected_priority,
+        day_of_week="" if selected_day == "All Days" else selected_day
+    )
+    overall_stats = analytics_data["overall_stats"]
+    dept_analytics = analytics_data["department_analytics"]
+    pri_analytics = analytics_data["priority_analytics"]
+    wait_classes = analytics_data["waiting_time_classification"]
+    peak_hours = analytics_data["peak_hour_analysis"]
+    day_stats = analytics_data["day_wise_analysis"]
+    insights = analytics_data["insights"]
+
     st.markdown(f"""
     <div class="engine-status-box">
         <div class="engine-status-title">Analytics Engine</div>
@@ -111,12 +142,22 @@ with st.sidebar:
         <div style="font-size:0.75rem; color:#64748B; margin-top:4px; line-height: 1.5;">
             Mode: <b>local[1]</b> (Low RAM)<br>
             Driver Memory: <b>1 GB</b><br>
-            Storage: <b>SQLite3</b> (mediqueue.db)<br>
-            Cohort: <b>{overall_stats['total_patients']} Synthetic Visits</b><br>
+            Analytics: <b>Spark DataFrames</b><br>
+            Cohort: <b>{overall_stats['total_patients']} visits</b><br>
             Avg Wait: <b>{overall_stats['avg_waiting_time']} mins</b>
         </div>
     </div>
     """, unsafe_allow_html=True)
+
+    if not raw_df.empty:
+        if selected_department != "All Departments":
+            raw_df = raw_df[raw_df["department"] == selected_department]
+        if selected_priority != "All Priorities":
+            raw_df = raw_df[raw_df["priority"] == selected_priority]
+        if selected_day != "All Days":
+            raw_df = raw_df[raw_df["day_of_week"] == selected_day]
+
+    st.caption(f"Showing {overall_stats['total_patients']} matching visits from the Spark analytics pipeline.")
 
     # Refresh Button
     if st.button("🔄 Refresh PySpark Pipeline", use_container_width=True):
@@ -138,6 +179,10 @@ with st.sidebar:
         unsafe_allow_html=True
     )
 
+if overall_stats["total_patients"] == 0:
+    st.info("No visits match these filters. Change a selection or reset the analytics filters.")
+    st.stop()
+
 
 # Timestamp for header
 current_refresh_time = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -149,8 +194,12 @@ current_refresh_time = datetime.now().strftime("%Y-%m-%d %H:%M")
 if nav_selection == "Overview Dashboard":
     render_header(
         title="Hospital Waiting Time Command Center",
-        subtitle="Real-time outpatient queue surveillance, service times, and triage bottleneck metrics.",
+        subtitle="Explore hospital flow interactively. All cohort metrics and department rankings are recalculated by Apache Spark.",
         refresh_time=current_refresh_time
+    )
+    st.caption(
+        f"Active cohort: {selected_department} · {selected_priority} · {selected_day} "
+        f"— {overall_stats['total_patients']} visits"
     )
 
     # Top KPI Metrics Row
@@ -160,7 +209,7 @@ if nav_selection == "Overview Dashboard":
         render_kpi_card(
             title="Total Patient Visits",
             value=f"{overall_stats['total_patients']}",
-            subtext="<span style='color:#0D9488;'>✓ 100% records synced from SQLite</span>",
+            subtext="<span style='color:#0D9488;'>✓ Filtered and aggregated with Spark</span>",
             border_left_color=COLOR_NAVY_PRIMARY
         )
 
@@ -303,7 +352,7 @@ if nav_selection == "Overview Dashboard":
     st.markdown("""
     <div class="content-card">
         <h3>Recent Hospital Visits Preview</h3>
-        <p class="subtitle">Latest 10 synthetic patient check-ins recorded in SQLite transaction log.</p>
+        <p class="subtitle">Latest visits in the selected department, priority, and weekday cohort.</p>
     """, unsafe_allow_html=True)
 
     if not raw_df.empty:
@@ -469,79 +518,48 @@ elif nav_selection == "Department Analytics":
 elif nav_selection == "Patient Queue":
     render_header(
         title="Live Patient Queue Management",
-        subtitle="Searchable and filterable visit telemetry sourced from SQLite transactional storage.",
+        subtitle="Search and inspect visit telemetry alongside the Spark-filtered analytics cohort.",
         refresh_time=current_refresh_time
     )
 
     if raw_df.empty:
-        st.warning("No hospital records available in the SQLite database. Please run database.py to populate records.")
+        st.warning("No hospital visit records are available for this cohort.")
     else:
         st.markdown("""
         <div class="content-card">
             <h3>Queue Telemetry Filter Console</h3>
-            <p class="subtitle">Filter visits by department, urgency priority, operational wait duration, or day of week.</p>
+            <p class="subtitle">Narrow the active cohort by wait category or search patient and doctor IDs.</p>
         """, unsafe_allow_html=True)
 
-        # Filters
-        f_c1, f_c2, f_c3, f_c4 = st.columns(4)
-        
+        f_c1, f_c2 = st.columns(2)
         with f_c1:
-            dept_opts = ["All Departments"] + sorted(list(raw_df["department"].unique()))
-            selected_dept = st.selectbox("Department", dept_opts)
-
-        with f_c2:
-            pri_opts = ["All Priorities"] + ["Critical", "High", "Medium", "Low"]
-            selected_pri = st.selectbox("Triage Priority", pri_opts)
-
-        with f_c3:
             wait_tier_opts = ["All Wait Tiers", "Short Wait (0-15m)", "Moderate Wait (16-30m)", "Long Wait (31-60m)", "Critical Delay (>60m)"]
             selected_tier = st.selectbox("Wait Time Category", wait_tier_opts)
 
-        with f_c4:
-            day_opts = ["All Days"] + ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-            selected_day = st.selectbox("Day of Week", day_opts)
-
-        # Search Bar and Reset button row
-        s_c1, s_c2 = st.columns([5, 1])
-        with s_c1:
+        with f_c2:
             search_query = st.text_input("🔍 Search by Patient ID (e.g. P1002) or Doctor ID (e.g. DOC-EM-01):", "")
-        with s_c2:
-            st.write("")
-            st.write("")
-            reset_filters = st.button("Reset Filters", use_container_width=True)
 
-        # Apply Filters
+        # Apply the page-specific filters on top of the Spark-selected cohort.
         filtered = raw_df.copy()
 
-        if not reset_filters:
-            if selected_dept != "All Departments":
-                filtered = filtered[filtered["department"] == selected_dept]
+        if selected_tier == "Short Wait (0-15m)":
+            filtered = filtered[filtered["waiting_time"] <= 15]
+        elif selected_tier == "Moderate Wait (16-30m)":
+            filtered = filtered[(filtered["waiting_time"] > 15) & (filtered["waiting_time"] <= 30)]
+        elif selected_tier == "Long Wait (31-60m)":
+            filtered = filtered[(filtered["waiting_time"] > 30) & (filtered["waiting_time"] <= 60)]
+        elif selected_tier == "Critical Delay (>60m)":
+            filtered = filtered[filtered["waiting_time"] > 60]
 
-            if selected_pri != "All Priorities":
-                filtered = filtered[filtered["priority"] == selected_pri]
-
-            if selected_day != "All Days":
-                filtered = filtered[filtered["day_of_week"] == selected_day]
-
-            if selected_tier != "All Wait Tiers":
-                if selected_tier == "Short Wait (0-15m)":
-                    filtered = filtered[filtered["waiting_time"] <= 15]
-                elif selected_tier == "Moderate Wait (16-30m)":
-                    filtered = filtered[(filtered["waiting_time"] > 15) & (filtered["waiting_time"] <= 30)]
-                elif selected_tier == "Long Wait (31-60m)":
-                    filtered = filtered[(filtered["waiting_time"] > 30) & (filtered["waiting_time"] <= 60)]
-                elif selected_tier == "Critical Delay (>60m)":
-                    filtered = filtered[filtered["waiting_time"] > 60]
-
-            if search_query.strip():
-                sq = search_query.strip().lower()
-                filtered = filtered[
-                    filtered["patient_id"].str.lower().str.contains(sq) |
-                    filtered["doctor_id"].str.lower().str.contains(sq)
-                ]
+        if search_query.strip():
+            sq = search_query.strip().lower()
+            filtered = filtered[
+                filtered["patient_id"].str.lower().str.contains(sq) |
+                filtered["doctor_id"].str.lower().str.contains(sq)
+            ]
 
         # Filtered Count Indicator
-        st.markdown(f"**Displaying {len(filtered)} of {len(raw_df)} matching patient visit records.**")
+        st.markdown(f"**Displaying {len(filtered)} of {len(raw_df)} visits in the active Spark cohort.**")
 
         if filtered.empty:
             st.info("ℹ️ No patient visits match the selected filter criteria. Try selecting 'All Departments' or resetting the search filter.")
@@ -745,7 +763,7 @@ elif nav_selection == "Reports & Downloads":
 
     with r_c2:
         st.markdown("#### 📊 Raw Patient Telemetry CSV")
-        st.write("Complete transactional records (200 outpatient visits) including arrival times, consultation durations, queue depths, and priority ratings.")
+        st.write(f"Complete visit dataset ({len(raw_visits)} outpatient visits), including arrival times, consultation durations, queue depths, and priorities.")
 
         raw_csv = convert_dict_list_to_csv(raw_visits)
         st.download_button(

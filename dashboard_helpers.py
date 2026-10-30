@@ -21,12 +21,21 @@ from analytics import run_full_analytics, DEFAULT_CSV_PATH
 
 
 @st.cache_data(show_spinner="Executing PySpark Analytics Engine (local[1])...")
-def get_cached_analytics(csv_path: str = DEFAULT_CSV_PATH) -> Dict[str, Any]:
+def get_cached_analytics(
+    csv_path: str = DEFAULT_CSV_PATH,
+    department: str = "",
+    priority: str = "",
+    day_of_week: str = ""
+) -> Dict[str, Any]:
     """
-    Run PySpark analytical pipeline and cache aggregated metrics.
-    All aggregations originate directly from real Apache Spark DataFrames.
+    Run and cache Spark aggregations for the selected dashboard filters.
     """
-    return run_full_analytics(source_path=csv_path)
+    return run_full_analytics(
+        source_path=csv_path,
+        department=department or None,
+        priority=priority or None,
+        day_of_week=day_of_week or None
+    )
 
 
 @st.cache_data(show_spinner="Fetching patient queue records from SQLite...")
@@ -99,15 +108,19 @@ def generate_executive_pdf_report(analytics: Dict[str, Any]) -> bytes:
     )
 
     story = []
+    overall = analytics.get("overall_stats", {})
     
     # Header
     story.append(Paragraph("MediQueue - Hospital Waiting Time Executive Report", title_style))
     report_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    story.append(Paragraph(f"Generated on: {report_date} | Engine: Apache Spark 3.5.9 (local[1]) | Dataset: 200 Visits", subtitle_style))
+    story.append(Paragraph(
+        f"Generated on: {report_date} | Engine: Apache Spark 3.5.9 (local[1]) | "
+        f"Dataset: {overall.get('total_patients', 0)} visits",
+        subtitle_style
+    ))
     story.append(Spacer(1, 10))
-
     # Overall KPIs
-    overall = analytics.get("overall_stats", {})
+    # Overall KPIs
     story.append(Paragraph("1. Overall Hospital Performance KPIs", section_style))
     kpi_data = [
         ["Metric", "Value", "Operational Significance"],
@@ -205,4 +218,3 @@ def generate_executive_pdf_report(analytics: Dict[str, Any]) -> bytes:
     pdf_bytes = buffer.getvalue()
     buffer.close()
     return pdf_bytes
-

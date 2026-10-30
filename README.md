@@ -27,8 +27,9 @@ In busy healthcare facilities, patient waiting time is one of the most critical 
 ## 🚀 Key Features
 
 - **📊 Central Dashboard:**
-  - Real-time KPIs: Total Patients, Currently Waiting, and Average Waiting Time.
-  - Quick-view operational status cards.
+  - Spark-computed KPIs for total visits, average waits, critical delays, and urgent cases.
+  - Global department, triage-priority, and weekday filters recalculate every analytic in PySpark.
+  - Cached Spark results keep repeat interactions responsive.
 - **👥 Patient Queue Management:**
   - Register new outpatient visits (Name, Age, Gender, Department, Priority).
   - Update patient status (`Waiting` ➔ `In Consultation` ➔ `Completed`).
@@ -37,6 +38,7 @@ In busy healthcare facilities, patient waiting time is one of the most critical 
   - Department-wise average waiting time calculations.
   - Throughput analysis (patients treated per hour/day).
   - Identification of department bottlenecks.
+  - Spark SQL DataFrame filters and window-function rankings drive the dashboard metrics.
 - **📈 Reports & Visualization:**
   - Plotly bar charts and peak-hour distribution heatmaps.
   - CSV report export for hospital administration records.
@@ -272,7 +274,7 @@ MediQueue features an interactive, healthcare operations command center built wi
   - College viva highlights, Big Data architecture rationale, and operational scope boundaries.
 
 ### 2. PySpark Streamlit Caching
-To maintain responsiveness on an 8 GB RAM laptop, analytical calculations are cached using `@st.cache_data`. This ensures PySpark processes distributed aggregations once, while subsequent filter interactions, tab switches, and downloads render instantaneously without spawning redundant Spark sessions.
+The sidebar exposes global department, triage-priority, and weekday controls. Each selection is applied to the Spark DataFrame before its aggregations and rankings are recalculated, so the KPIs, charts, recommendations, report, and queue view all follow the active cohort. Results are cached using `@st.cache_data` to keep repeat selections responsive without spawning redundant Spark sessions. The queue page adds wait-tier and patient/doctor search filters.
 
 ---
 

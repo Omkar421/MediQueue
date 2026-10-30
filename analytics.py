@@ -499,12 +499,25 @@ class MediQueueAnalytics:
         }
 
 
-def run_full_analytics(source_path: Optional[str] = None) -> Dict[str, Any]:
+def run_full_analytics(
+    source_path: Optional[str] = None,
+    department: Optional[str] = None,
+    priority: Optional[str] = None,
+    day_of_week: Optional[str] = None
+) -> Dict[str, Any]:
     """
-    Convenience function to initialize Spark, load dataset, and compute all analytics.
+    Load the dataset, apply optional filters in Spark, and compute all analytics.
     """
     spark = get_spark_session()
     df = load_hospital_data(spark=spark, source_path=source_path)
+
+    if department:
+        df = df.filter(F.col("department") == department)
+    if priority:
+        df = df.filter(F.col("priority") == priority)
+    if day_of_week:
+        df = df.filter(F.col("day_of_week") == day_of_week)
+
     engine = MediQueueAnalytics(df)
     
     return {
@@ -529,4 +542,3 @@ if __name__ == "__main__":
     for k, v in results["insights"].items():
         print(f"  {k}: {v}")
     stop_spark_session()
-
