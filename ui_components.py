@@ -286,16 +286,6 @@ def apply_custom_css():
             gap: 6px;
         }
 
-        /* Viva Highlight Card */
-        .viva-box {
-            background: #F0FDFA;
-            border: 1px solid #CCFBF1;
-            border-radius: 8px;
-            padding: 0.85rem;
-            margin-top: 1rem;
-            font-size: 0.78rem;
-            color: #115E59;
-        }
     </style>
     """, unsafe_allow_html=True)
 

@@ -104,7 +104,6 @@
 ### Page 6: About MediQueue & Architecture
 - **What to show:**
   - Core architectural overview separating SQLite (OLTP) and Apache PySpark (OLAP).
-  - Open the expandable **"College Viva Examiner Q&A Guide"** to demonstrate readiness for technical questions.
 
 ---
 
@@ -144,4 +143,3 @@ Show the examiner that the system is backed by empirical unit tests:
 - [x] `@st.cache_data` enabled so filter clicks render instantly without waiting for Spark recalculation.
 - [x] Executive PDF and CSV export buttons tested and fully functional.
 - [x] 100% offline execution ready.
-

@@ -276,7 +276,7 @@ MediQueue features an interactive, healthcare operations command center built wi
   - Download PySpark aggregated metrics (Department rankings, Priority breakdowns, Wait tiers) as CSV.
   - One-click **Executive Summary PDF Report** generated dynamically via ReportLab.
 - **About MediQueue:**
-  - College viva highlights, Big Data architecture rationale, and operational scope boundaries.
+  - Overview of the dashboard, analytics pipeline, SQLite storage, and operational scope.
 
 ### 2. PySpark Streamlit Caching
 The sidebar exposes global department, triage-priority, and weekday controls. Each selection is applied to the Spark DataFrame before its aggregations and rankings are recalculated, so the KPIs, charts, recommendations, report, and queue view all follow the active cohort. Results are cached using `@st.cache_data` to keep repeat selections responsive without spawning redundant Spark sessions. The queue page adds wait-tier and patient/doctor search filters.
@@ -320,15 +320,6 @@ The repository's `packages.txt` installs the Java 17 runtime required to start P
 
 ---
 
-## 🎓 College Viva & Discussion Notes
-
-- **Why PySpark for a hospital queue?**  
-  In high-volume hospital networks, millions of patient visits and telemetry points are logged continuously. Demonstrating PySpark showcases how distributed computing scales to aggregate multi-department queue metrics efficiently.
-- **Why `local[1]`?**  
-  `local[1]` configures Spark to run locally using a single worker thread, minimizing memory overhead on student laptops while executing genuine Spark RDD/DataFrame code.
-- **Separation of Concerns:**  
-  SQLite handles transactional operations (adding patients, updating queue statuses), while PySpark handles analytical workloads (aggregations, peak-hour calculations).
-
 ---
 
 ## 📸 Application Screenshots
@@ -357,7 +348,7 @@ The interface is designed with a modern healthcare operations command center aes
 
 ### 6. About MediQueue & Architecture
 ![About MediQueue](screenshots/about-mediqueue.png)
-*System architecture breakdown, Big Data motivation, and college viva examiner question cheat sheet.*
+*A concise overview of the dashboard, Spark analytics pipeline, SQLite storage, and data flow.*
 
 ---
 
@@ -389,12 +380,11 @@ The interface is designed with a modern healthcare operations command center aes
 
 ---
 
-## 🎓 College Demonstration & Viva Resources
+## 📋 Project Demonstration Guide
 
-To assist TY BSc IT students during college practical examinations, capstone reviews, and external vivas, comprehensive documentation is included:
+The project includes a step-by-step walkthrough of its six dashboard views:
 
 - 📋 **[College Demonstration Guide](DEMO_GUIDE.md):** Step-by-step walkthrough script for presenting all 6 dashboard views to examiners, explaining PySpark aggregations, and demonstrating filter/export capabilities.
-- 💡 **[Viva Voce Questions & Answers](VIVA_QUESTIONS.md):** 20 curated technical questions and concise, student-friendly answers covering Big Data, Spark local[1], DataFrames, dense_rank(), SQLite OLTP vs PySpark OLAP, caching, and why Machine Learning is not used.
 
 ---
 
@@ -403,5 +393,5 @@ To assist TY BSc IT students during college practical examinations, capstone rev
 - [x] **Step 2:** SQLite database schema setup, 200-record synthetic patient dataset, CRUD operations, validation, and test suite.
 - [x] **Step 3:** PySpark analytical pipeline (`local[1]`) for queue metrics, department rankings, peak hours, and rule-based insights.
 - [x] **Step 4:** Interactive dashboard, patient queue interface, department analysis, Plotly charts, and ReportLab PDF reporting.
-- [x] **Step 5:** Final integration, quality audit, UI polish, examiner demonstration notes & test verification.
-- [x] **Step 6:** Final testing, high-resolution screenshots & college demonstration preparation.
+- [x] **Step 5:** Final integration, quality audit, UI polish, and test verification.
+- [x] **Step 6:** Final testing, high-resolution screenshots, and project walkthrough preparation.

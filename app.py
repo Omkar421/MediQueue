@@ -165,13 +165,6 @@ with st.sidebar:
         st.toast("PySpark Analytics Pipeline Refreshed!", icon="🔄")
         st.rerun()
 
-    st.markdown("""
-    <div class="viva-box">
-        <b>💡 Viva Quick Tip:</b><br>
-        All aggregations and window rankings execute genuine PySpark SQL DataFrames in local mode, cached for zero rerun overhead.
-    </div>
-    """, unsafe_allow_html=True)
-
     st.markdown(
         "<div style='font-size:0.75rem; color:#94A3B8; margin-top:1rem; text-align:center;'>"
         "MediQueue Academic Engineering Project<br>TY BSc IT Capstone"
@@ -814,55 +807,53 @@ elif nav_selection == "Reports & Downloads":
 
 
 # ==========================================
-# 7. ABOUT MEDIQUEUE (COLLEGE VIVA HIGHLIGHTS)
+# 7. ABOUT MEDIQUEUE
 # ==========================================
 elif nav_selection == "About MediQueue":
     render_header(
-        title="About MediQueue Architecture & Viva Highlights",
-        subtitle="System design, Big Data motivation, and college demonstration presentation notes.",
+        title="About MediQueue",
+        subtitle="A practical overview of the dashboard, analytics pipeline, and data storage.",
         refresh_time=current_refresh_time
     )
 
-    st.markdown("""
-    <div class="content-card">
-        <h3>🎓 Project Architecture & College Demonstration Notes</h3>
-        <p class="subtitle">Designed specifically for a TY BSc IT final year engineering project.</p>
+    st.subheader("How the system fits together")
+    st.write(
+        "MediQueue separates the dashboard, batch analytics, and visit storage. "
+        "The sidebar filters define the cohort used by the Spark analytics and patient views."
+    )
 
-        <h4>1. Why PySpark for Hospital Waiting Time Analysis?</h4>
-        <p>In municipal and private hospital systems, thousands of patients arrive daily across emergency, outpatient, and specialty clinics.
-        Demonstrating <b>Apache PySpark</b> illustrates how distributed computing frameworks process, aggregate, and rank large-scale queue telemetry
-        with windowed ranking operations that scale to millions of records across multi-hospital networks.</p>
+    presentation, analytics, storage = st.columns(3)
+    with presentation:
+        with st.container(border=True):
+            st.markdown("#### Dashboard")
+            st.write("Streamlit builds the interactive pages and Plotly charts.")
+            st.caption("app.py · ui_components.py")
+    with analytics:
+        with st.container(border=True):
+            st.markdown("#### Analytics")
+            st.write(
+                "PySpark reads the visit dataset, applies the selected filters, "
+                "and computes summary metrics and department rankings."
+            )
+            st.caption("Apache Spark · local[1]")
+    with storage:
+        with st.container(border=True):
+            st.markdown("#### Visit storage")
+            st.write(
+                "SQLite stores visit records and supports validated database operations. "
+                "An empty database is initialized from the bundled CSV."
+            )
+            st.caption("SQLite · data/hospital_visits.csv")
 
-        <h4>2. Architecture & Separation of Concerns</h4>
-        <ul>
-            <li><b>Transactional Layer (SQLite3):</b> Manages atomic visit insertions, patient queue tracking, status updates, and constraint validations.</li>
-            <li><b>Analytical Layer (PySpark 3.5.9 local[1]):</b> Performs batch aggregations, windowed department rankings, waiting-time classifications, and peak-hour profiling.</li>
-            <li><b>Presentation Layer (Streamlit + Plotly):</b> Delivers a reactive, hospital command center interface with responsive Plotly visualizations.</li>
-        </ul>
+    st.subheader("Analytics flow")
+    st.markdown(
+        "1. Load visit records from the bundled dataset.\n"
+        "2. Apply the department, priority, and weekday selections in Spark.\n"
+        "3. Calculate cohort KPIs, wait-time categories, hourly trends, and department rankings.\n"
+        "4. Display the filtered results and export reports from the dashboard."
+    )
 
-        <h4>3. Why local[1] on an 8 GB RAM Laptop?</h4>
-        <p><code>local[1]</code> restricts PySpark to a single local thread, avoiding multi-process CPU thrashing, limiting memory allocation to 1 GB,
-        and setting shuffle partitions to 1. This provides authentic distributed DataFrame execution without crashing standard student laptops.</p>
-
-        <h4>4. Strict Academic Boundary Note</h4>
-        <p>MediQueue is strictly an <b>operational logistics and queue optimization system</b>. It does not perform clinical diagnosis, triage diagnosis, or automated medical prescribing.
-        All 200 visit records are 100% synthetic and contain zero real patient data.</p>
-
-        <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #E2E8F0;">
-
-        <h4>🎯 Viva Examiner Q&A Cheat Sheet</h4>
-        <div style="background:#F8FAFC; padding:1.2rem; border-radius:8px; border:1px solid #E2E8F0; margin-top:0.75rem;">
-            <p><b>Q1: How does MediQueue identify hospital bottlenecks?</b><br>
-            <i>Answer:</i> The PySpark engine computes department average waiting times and applies a Window dense_rank() function. General Medicine (51.5 min) and Cardiology (51.4 min) rank highest in wait times, triggering rule-based staffing suggestions.</p>
-            
-            <p><b>Q2: How does patient triage priority affect waiting time?</b><br>
-            <i>Answer:</i> Critical patients wait an average of 5.0 minutes, while Low priority patients wait an average of 77.8 minutes. This proves fast-tracking for urgent care operates accurately in the data model.</p>
-            
-            <p><b>Q3: What happens during peak arrival windows?</b><br>
-            <i>Answer:</i> Between 10:00 and 13:00, arrival volume peaks at 27 check-ins per hour, driving queue depths up to 11.8 patients ahead and increasing average wait times above 50 minutes.</p>
-            
-            <p><b>Q4: How does the system avoid excessive memory consumption?</b><br>
-            <i>Answer:</i> By combining PySpark <code>local[1]</code> with Streamlit's <code>@st.cache_data</code>, analytical aggregations execute once and cache in memory, eliminating redundant Spark session spin-ups on user interactions.</p>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.info(
+        "MediQueue is an operational queue analytics demo, not a clinical decision tool. "
+        "The bundled visit records are synthetic."
+    )
