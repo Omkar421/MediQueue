@@ -65,6 +65,7 @@ MediQueue/
 ├── data/
 │   ├── hospital_visits.csv   # 200 realistic synthetic visit records
 │   └── mediqueue.db          # Created locally at runtime; excluded from Git
+├── packages.txt              # Java runtime required by PySpark on Streamlit Cloud
 ├── analytics.py              # PySpark analytics engine & metric transformers
 ├── app.py                    # Main Streamlit dashboard application
 ├── dashboard_helpers.py      # Cached PySpark/SQLite loaders, CSV & PDF generators
@@ -306,6 +307,9 @@ streamlit run app.py
 ```
 
 The application will start and open automatically in your browser at `http://localhost:8501`.
+
+### Deploying on Streamlit Community Cloud
+The repository's `packages.txt` installs the Java 17 runtime required to start PySpark. Keep this file at the repository root so Community Cloud installs Java before launching the app.
 
 ---
 
