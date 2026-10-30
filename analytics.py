@@ -116,25 +116,27 @@ def load_hospital_data(
         rows = database.get_all_visits(db_path=db_file)
         if not rows:
             return session.createDataFrame([], HOSPITAL_VISITS_SCHEMA)
-        
-        # Format rows matching the schema
-        clean_rows = []
-        for r in rows:
-            clean_rows.append((
-                str(r["patient_id"]),
-                str(r["department"]),
-                str(r["arrival_time"]),
-                str(r["consultation_start"]),
-                str(r["consultation_end"]),
-                str(r["doctor_id"]),
-                str(r["priority"]),
-                int(r["patient_age"]),
-                int(r["queue_length"]),
-                float(r["waiting_time"]),
-                float(r["consultation_duration"]),
-                str(r["day_of_week"])
-            ))
-        return session.createDataFrame(clean_rows, HOSPITAL_VISITS_SCHEMA)
+
+        def sql_literal(value: Any, data_type: Any) -> str:
+            if isinstance(data_type, StringType):
+                encoded = str(value).encode("utf-8").hex()
+                return f"CAST(unhex('{encoded}') AS STRING)"
+            if isinstance(data_type, IntegerType):
+                return f"CAST({int(value)} AS INT)"
+            if isinstance(data_type, DoubleType):
+                return f"CAST({float(value)} AS DOUBLE)"
+            raise TypeError(f"Unsupported SQLite analytics field type: {data_type}")
+
+        fields = HOSPITAL_VISITS_SCHEMA.fields
+        values = ", ".join(
+            "(" + ", ".join(
+                sql_literal(row[field.name], field.dataType)
+                for field in fields
+            ) + ")"
+            for row in rows
+        )
+        columns = ", ".join(field.name for field in fields)
+        return session.sql(f"SELECT * FROM VALUES {values} AS visits({columns})")
     else:
         raise FileNotFoundError(f"Hospital data source not found at: {path}")
 

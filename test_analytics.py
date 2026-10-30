@@ -6,6 +6,7 @@ wait-time classification, peak-hour profiling, rule-based insights, and empty da
 
 import os
 import sys
+import tempfile
 import unittest
 
 # Ensure PySpark workers match the active runtime
@@ -13,6 +14,7 @@ os.environ["PYSPARK_PYTHON"] = sys.executable
 os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
 
 from pyspark.sql import SparkSession
+import database
 from analytics import (
     get_spark_session,
     stop_spark_session,
@@ -151,6 +153,27 @@ class TestMediQueueAnalytics(unittest.TestCase):
         tue = next(d for d in day_metrics if d["day_of_week"] == "Tuesday")
         self.assertEqual(tue["total_visits"], 2)
 
+    def test_sqlite_data_load_escapes_values_without_python_rdd(self):
+        """Load SQLite records through Spark SQL, including quoted text values."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = os.path.join(temp_dir, "visits.db")
+            database.import_csv(db_path=db_path)
+
+            visit = dict(zip(
+                [field.name for field in HOSPITAL_VISITS_SCHEMA.fields],
+                self.sample_data[0]
+            ))
+            visit["patient_id"] = "TEST-'quoted\\path"
+            database.insert_visit(visit, db_path=db_path)
+
+            loaded = load_hospital_data(self.spark, db_path)
+
+            self.assertEqual(loaded.count(), 201)
+            self.assertEqual(
+                loaded.filter(loaded.patient_id == visit["patient_id"]).count(),
+                1
+            )
+
     # 8. Rule-Based Insights
     def test_rule_based_insights(self):
         """Verify extraction of operational insights and recommendations."""
@@ -203,4 +226,3 @@ class TestMediQueueAnalytics(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
