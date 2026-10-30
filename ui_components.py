@@ -290,7 +290,7 @@ def apply_custom_css():
     """, unsafe_allow_html=True)
 
 
-def render_header(title: str, subtitle: str, refresh_time: str):
+def render_header(title: str, subtitle: str, refresh_time: str, total_visits: int):
     """Render the top dashboard banner with status, engine, and refresh timestamp."""
     st.markdown(f"""
     <div class="dashboard-header">
@@ -300,7 +300,7 @@ def render_header(title: str, subtitle: str, refresh_time: str):
         </div>
         <div class="header-badge-box">
             <div class="status-pill">
-                <span class="live-dot"></span> 200 Visits Synced
+                <span class="live-dot"></span> {total_visits} Visits
             </div>
             <div class="spark-pill">
                 <span class="spark-dot"></span> PySpark 3.5.9 local[1]

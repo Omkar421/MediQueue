@@ -14,13 +14,11 @@ A modern, professional, beginner-friendly college engineering project that demon
 
 In busy healthcare facilities, patient waiting time is one of the most critical indicators of operational efficiency and patient satisfaction. Prolonged queue delays lead to overcrowding, patient frustration, and uneven doctor workloads.
 
-**MediQueue** solves this problem by providing:
-1. **Real-time Queue Visibility:** Tracking patient flow from arrival, triage/registration, consultation, to completion.
-2. **Big Data Processing with PySpark:** Utilizing Apache PySpark (`local[1]`) for distributed-style batch aggregations across department records.
-3. **Queue Optimization & Wait Time Estimation:** Calculating estimated waiting times based on queue depth and department service velocity.
-4. **Visual Analytics & Reporting:** Interactive Plotly charts and CSV export for operational reporting.
+**MediQueue** is a small demo that lets users explore sample hospital visits, add a completed demo visit, and view waiting-time summaries. PySpark calculates the dashboard metrics from visits saved in SQLite.
 
 > **Important Academic Boundary:** MediQueue deals strictly with **operational waiting times and queue logistics**. It does **not** perform medical diagnosis or clinical emergency triage. All patient records use synthetic/demo data.
+
+The add-visit form creates a demo record; it does not connect to a real hospital or track a patient currently waiting. Real use would require secure access, privacy-approved storage, and integration with a live hospital system.
 
 ---
 
@@ -31,9 +29,9 @@ In busy healthcare facilities, patient waiting time is one of the most critical 
   - Global department, triage-priority, and weekday filters recalculate every analytic in PySpark.
   - Cached Spark results keep repeat interactions responsive.
 - **👥 Patient Queue Management:**
-  - Register new outpatient visits (Name, Age, Gender, Department, Priority).
-  - Update patient status (`Waiting` ➔ `In Consultation` ➔ `Completed`).
-  - Department filtering and live search.
+  - Add a completed demo visit with a visit ID, department, priority, and wait/consultation times.
+  - Search saved visits by patient or doctor ID.
+  - New visits are saved in SQLite and included in Spark analytics.
 - **⚡ PySpark Department Analysis:**
   - Department-wise average waiting time calculations.
   - Throughput analysis (patients treated per hour/day).
@@ -42,8 +40,6 @@ In busy healthcare facilities, patient waiting time is one of the most critical 
 - **📈 Reports & Visualization:**
   - Plotly bar charts and peak-hour distribution heatmaps.
   - CSV report export for hospital administration records.
-- **⏱️ Smart Queue Estimation:**
-  - Dynamic estimated waiting time calculated from the number of patients ahead and historical department service times.
 
 ---
 
@@ -196,9 +192,9 @@ All tests run in an isolated in-memory or temporary database without mutating th
 ## ⚡ PySpark Analytics Engine (Step 3)
 
 ### 1. Why PySpark for MediQueue?
-Healthcare outpatient queues generate continuous telemetry across multiple facilities, specialty departments, and triage stations. While standard databases handle row-by-row transactions (check-ins and status updates), **Apache PySpark** provides:
+In this demo, SQLite stores sample and completed visit records. **Apache PySpark** reads those records to:
 - **Scalable Batch Aggregations:** Distributed dataframe operations (`groupBy`, `agg`, `Window`) capable of scaling from local demonstration to massive multi-hospital datasets without code refactoring.
-- **Analytical Separation of Concerns:** Eliminates heavy analytical query loads from the transactional SQLite database, ensuring real-time patient queue operations remain responsive.
+- **Separate responsibilities:** SQLite stores visits, while PySpark calculates dashboard summaries and rankings from the saved records.
 - **Enterprise-Grade Data Transformations:** Utilizes Spark SQL expressions for dynamic tier classifications, time-series hour extractions, and windowed rankings.
 
 ### 2. Lightweight `local[1]` Spark Configuration
@@ -334,7 +330,7 @@ The interface is designed with a modern healthcare operations command center aes
 ![Department Analytics](screenshots/department-analytics.png)
 *Side-by-side comparison of Average Wait Time vs Consultation Duration, PySpark Window `dense_rank()` league table, and rule-based staffing recommendations.*
 
-### 3. Live Patient Queue Management
+### 3. Patient Visit Queue
 ![Patient Queue](screenshots/patient-queue.png)
 *Searchable and multi-filterable outpatient queue telemetry sourced from SQLite transactions with instant filter resets and doctor/patient ID search.*
 

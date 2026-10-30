@@ -17,18 +17,18 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
 import database
-from analytics import run_full_analytics, DEFAULT_CSV_PATH
+from analytics import run_full_analytics
 
 
 @st.cache_data(show_spinner="Executing PySpark Analytics Engine (local[1])...")
 def get_cached_analytics(
-    csv_path: str = DEFAULT_CSV_PATH,
+    csv_path: str = database.DEFAULT_DB_PATH,
     department: str = "",
     priority: str = "",
     day_of_week: str = ""
 ) -> Dict[str, Any]:
     """
-    Run and cache Spark aggregations for the selected dashboard filters.
+    Run and cache Spark aggregations over SQLite visits for the selected filters.
     """
     return run_full_analytics(
         source_path=csv_path,

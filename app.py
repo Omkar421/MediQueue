@@ -6,7 +6,7 @@ A hospital operations command center powered by Apache PySpark 3.5.9 (local[1]) 
 
 import sys
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Ensure PySpark workers match active Python environment
 os.environ["PYSPARK_PYTHON"] = sys.executable
@@ -16,6 +16,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import database
 
 from ui_components import (
     apply_custom_css,
@@ -54,7 +55,7 @@ st.set_page_config(
 apply_custom_css()
 
 # Load visit records for queue operations and filter choices.
-raw_visits = get_cached_patient_visits()
+raw_visits = get_cached_patient_visits(db_path=database.DEFAULT_DB_PATH)
 raw_df = pd.DataFrame(raw_visits) if raw_visits else pd.DataFrame()
 
 
@@ -93,7 +94,7 @@ with st.sidebar:
     st.markdown("---")
 
     st.markdown("#### Explore the data")
-    st.caption("Each selection filters the source DataFrame in Spark before the dashboard metrics are calculated.")
+    st.caption("Filters are applied in Spark to visits stored in the local database.")
     if st.button("Reset analytics filters", use_container_width=True):
         st.session_state["filter_department"] = "All Departments"
         st.session_state["filter_priority"] = "All Priorities"
@@ -121,6 +122,7 @@ with st.sidebar:
     )
 
     analytics_data = get_cached_analytics(
+        csv_path=database.DEFAULT_DB_PATH,
         department="" if selected_department == "All Departments" else selected_department,
         priority="" if selected_priority == "All Priorities" else selected_priority,
         day_of_week="" if selected_day == "All Days" else selected_day
@@ -188,7 +190,8 @@ if nav_selection == "Overview Dashboard":
     render_header(
         title="Hospital Waiting Time Command Center",
         subtitle="Explore hospital flow interactively. All cohort metrics and department rankings are recalculated by Apache Spark.",
-        refresh_time=current_refresh_time
+        refresh_time=current_refresh_time,
+        total_visits=len(raw_visits)
     )
     st.caption(
         f"Active cohort: {selected_department} · {selected_priority} · {selected_day} "
@@ -378,7 +381,8 @@ elif nav_selection == "Department Analytics":
     render_header(
         title="Department Waiting Time & Capacity Analytics",
         subtitle="Department comparative benchmarks, queue rankings, and rule-based staffing suggestions.",
-        refresh_time=current_refresh_time
+        refresh_time=current_refresh_time,
+        total_visits=len(raw_visits)
     )
 
     # Department Key Insights Summary Cards
@@ -510,13 +514,68 @@ elif nav_selection == "Department Analytics":
 # ==========================================
 elif nav_selection == "Patient Queue":
     render_header(
-        title="Live Patient Queue Management",
-        subtitle="Search and inspect visit telemetry alongside the Spark-filtered analytics cohort.",
-        refresh_time=current_refresh_time
+        title="Patient Visit Queue",
+        subtitle="Add a demo visit or search saved visits. New records are stored in SQLite.",
+        refresh_time=current_refresh_time,
+        total_visits=len(raw_visits)
     )
 
+    added_visit_id = st.session_state.pop("added_visit_id", None)
+    if added_visit_id:
+        st.success(f"Visit {added_visit_id} was added to the database.")
+
+    with st.expander("Add a demo patient visit", expanded=False):
+        st.caption(
+            "Use a made-up patient ID. This saves a completed sample visit for the dashboard. "
+            "It does not register a real patient or track a live queue."
+        )
+        with st.form("add_demo_visit", clear_on_submit=True):
+            patient_col, dept_col = st.columns(2)
+            with patient_col:
+                patient_id = st.text_input("Patient ID", placeholder="e.g. DEMO-2001")
+                department = st.selectbox("Department", database.VALID_DEPARTMENTS)
+                priority = st.selectbox("Priority", database.VALID_PRIORITIES)
+                patient_age = st.number_input("Age", min_value=0, max_value=130, value=30)
+            with dept_col:
+                doctor_id = st.text_input("Doctor ID", placeholder="e.g. DOC-EM-01")
+                queue_length = st.number_input("People ahead in queue", min_value=0, value=0)
+                waiting_time = st.number_input(
+                    "Wait time (minutes)", min_value=0.0, value=10.0, step=1.0
+                )
+                consultation_duration = st.number_input(
+                    "Consultation time (minutes)", min_value=1.0, value=20.0, step=1.0
+                )
+            submitted = st.form_submit_button("Add visit", use_container_width=True)
+
+        if submitted:
+            completed_at = datetime.now().replace(microsecond=0)
+            consultation_start = completed_at - timedelta(minutes=consultation_duration)
+            arrival_time = consultation_start - timedelta(minutes=waiting_time)
+            visit = {
+                "patient_id": patient_id,
+                "department": department,
+                "arrival_time": arrival_time.strftime(database.DATETIME_FORMAT),
+                "consultation_start": consultation_start.strftime(database.DATETIME_FORMAT),
+                "consultation_end": completed_at.strftime(database.DATETIME_FORMAT),
+                "doctor_id": doctor_id,
+                "priority": priority,
+                "patient_age": patient_age,
+                "queue_length": queue_length,
+                "waiting_time": waiting_time,
+                "consultation_duration": consultation_duration,
+                "day_of_week": arrival_time.strftime("%A")
+            }
+            try:
+                database.insert_visit(visit)
+            except database.ValidationError as exc:
+                st.error(str(exc))
+            else:
+                st.session_state["added_visit_id"] = patient_id.strip()
+                st.cache_data.clear()
+                st.rerun()
+
     if raw_df.empty:
-        st.warning("No hospital visit records are available for this cohort.")
+        st.info("No visits match the current dashboard filters.")
     else:
         st.markdown("""
         <div class="content-card">
@@ -595,7 +654,8 @@ elif nav_selection == "Waiting Time Analysis":
     render_header(
         title="In-Depth Waiting Time & Queue Dynamics",
         subtitle="Operational delay breakdown, peak influx windows, and weekly traffic trends.",
-        refresh_time=current_refresh_time
+        refresh_time=current_refresh_time,
+        total_visits=len(raw_visits)
     )
 
     # 4 Waiting Time Tier Metric Cards
@@ -730,7 +790,8 @@ elif nav_selection == "Reports & Downloads":
     render_header(
         title="Hospital Reports & Analytics Export",
         subtitle="One-click CSV exports of PySpark analytics and downloadable executive PDF operational report.",
-        refresh_time=current_refresh_time
+        refresh_time=current_refresh_time,
+        total_visits=len(raw_visits)
     )
 
     st.markdown("""
@@ -762,7 +823,7 @@ elif nav_selection == "Reports & Downloads":
         st.download_button(
             label="📥 Download Full Visits Dataset (CSV)",
             data=raw_csv,
-            file_name="mediqueue_hospital_visits_200.csv",
+            file_name="mediqueue_hospital_visits.csv",
             mime="text/csv",
             use_container_width=True
         )
@@ -813,13 +874,14 @@ elif nav_selection == "About MediQueue":
     render_header(
         title="About MediQueue",
         subtitle="A practical overview of the dashboard, analytics pipeline, and data storage.",
-        refresh_time=current_refresh_time
+        refresh_time=current_refresh_time,
+        total_visits=len(raw_visits)
     )
 
     st.subheader("How the system fits together")
     st.write(
-        "MediQueue separates the dashboard, batch analytics, and visit storage. "
-        "The sidebar filters define the cohort used by the Spark analytics and patient views."
+        "Add a demo visit on the Patient Visit Queue page. The visit is saved in SQLite, "
+        "and Spark uses saved visits to calculate the dashboard numbers."
     )
 
     presentation, analytics, storage = st.columns(3)
@@ -832,8 +894,8 @@ elif nav_selection == "About MediQueue":
         with st.container(border=True):
             st.markdown("#### Analytics")
             st.write(
-                "PySpark reads the visit dataset, applies the selected filters, "
-                "and computes summary metrics and department rankings."
+                "PySpark reads saved visits, applies your filters, and calculates "
+                "wait-time summaries and department rankings."
             )
             st.caption("Apache Spark · local[1]")
     with storage:
@@ -841,19 +903,20 @@ elif nav_selection == "About MediQueue":
             st.markdown("#### Visit storage")
             st.write(
                 "SQLite stores visit records and supports validated database operations. "
-                "An empty database is initialized from the bundled CSV."
+                "If it starts empty, the app loads the 200 sample visits from the CSV."
             )
             st.caption("SQLite · data/hospital_visits.csv")
 
     st.subheader("Analytics flow")
     st.markdown(
-        "1. Load visit records from the bundled dataset.\n"
-        "2. Apply the department, priority, and weekday selections in Spark.\n"
-        "3. Calculate cohort KPIs, wait-time categories, hourly trends, and department rankings.\n"
-        "4. Display the filtered results and export reports from the dashboard."
+        "1. Load the sample visits into SQLite when the database is empty.\n"
+        "2. Add demo visits or keep using the sample visits.\n"
+        "3. Spark reads all saved visits and applies your filters.\n"
+        "4. The dashboard displays updated summaries, charts, and reports."
     )
 
     st.info(
-        "MediQueue is an operational queue analytics demo, not a clinical decision tool. "
-        "The bundled visit records are synthetic."
+        "In simple terms: this demo uses made-up visits to show how a hospital could review waiting times. "
+        "It is not connected to a real hospital and must not be used for real patient care. "
+        "A real deployment would need secure access, privacy-approved storage, and live queue status tracking."
     )
